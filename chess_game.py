@@ -402,10 +402,10 @@ if __name__=="__main__":
 	game_file.close();
 
 	"""
-	game_file = open(DATA_ROOT+"game_0.txt",'r');
+	game_file = open(DATA_ROOT+"game_158.txt",'r');
 	count = 0;
 
-	line = game_file.readlines()[2];
+	line = game_file.readlines()[5265];
 	steps=line.split(" ")[1:];
 	test_file = open("test/test.out",'w');
 	c=ChessGame();
