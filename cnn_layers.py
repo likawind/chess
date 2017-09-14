@@ -15,6 +15,9 @@ def conv2d(x,W):
 def max_pool(x,size):
 	return tf.nn.max_pool2d(x,ksize=[1,size,size,1],strides=[1,size,size,1],padding='SAME');
 
+def lrelu(x):
+	return tf.nn.relu(x)-hp.Model["RELU_LEAK_ALPHA"]*tf.nn.relu(-x);
+
 def fc_dense(x,input_size,hiddens,dropout_keep_prob=1):
 
 	cur_input		= [];
@@ -30,7 +33,11 @@ def fc_dense(x,input_size,hiddens,dropout_keep_prob=1):
 		W.append(weight([cur_input_size[i], hidden_layer_size]));
 		b.append(bias([hidden_layer_size]));
 
-		cur_input.append(tf.nn.relu(tf.matmul(cur_input_dropped[i], W[i])+b[i]));
+		if i < len(hiddens)-1:
+			cur_input.append(lrelu(tf.matmul(cur_input_dropped[i], W[i])+b[i]));
+		else:
+			cur_input.append(tf.nn.sigmoid(tf.matmul(cur_input_dropped[i],W[i])+b[i]));
+			
 		cur_input_size.append(hidden_layer_size);
 
 	reg = W;

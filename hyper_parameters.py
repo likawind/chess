@@ -1,8 +1,5 @@
-BATCH_SIZE = 32;
-NUM_READING_THREADS = 4;
-
 Input={
-	"BATCH_SIZE":			32,
+	"BATCH_SIZE":			128,
 	"NUM_THREADS":			4,
 	"MIN_AFTER_DEQUEUE":	200,
 	"CAPACITY":				0
@@ -11,8 +8,9 @@ Input={
 Input["CAPACITY"] = Input["MIN_AFTER_DEQUEUE"]+Input["BATCH_SIZE"]*3;
 
 Model={
-	"WEIGHT_INIT_STD":		0.01,
-	"DROP_OUT_KEEP_PROB":	0.9,
-	"REG_RATE":				0.01,
-	"LEARNING_RATE":		1e-4
+	"WEIGHT_INIT_STD":		0.1,
+	"DROP_OUT_KEEP_PROB":	1,
+	"REG_RATE":				0,
+	"LEARNING_RATE":		1e-7,
+	"RELU_LEAK_ALPHA":		0.1
 }
