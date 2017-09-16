@@ -102,12 +102,13 @@ class Agent:
 		val_dropout_keep_prob = None;
 		val_is_training = None;
 		val_labels = None;
+		num_correct = None;
 		val_accuracies = [];
 		if self.using_val:
 			val_pred, val_dropout_keep_prob, val_is_training = self.network(self.val_data);
 			val_labels = (tf.cast(tf.reshape(self.val_label,[-1,1]), tf.float32)+1)/2;
-			num_correct = tf.reduce_sum(tf.cast(tf.equal(val_pred>0.5,val_labels>0.6),tf.float32)+tf.cast(tf.equal(val_pred<0.5,val_labels<0.4),tf.float32));
-			val_accuracy = num_correct/tf.reduce_sum(tf.cast(val_labels>0.6,tf.float32)+tf.cast(val_labels<0.4,tf.float32));
+			num_correct = tf.reduce_sum(tf.cast(tf.logical_and(val_pred>0.5,val_labels>0.6),tf.float32)+tf.cast(tf.logical_and(val_pred<0.5,val_labels<0.4),tf.float32));
+			val_accuracy = num_correct/(tf.reduce_sum(tf.cast(val_labels>0.6,tf.float32)+tf.cast(val_labels<0.4,tf.float32)));
 
 		with tf.Session() as sess:
 			sess.run(tf.global_variables_initializer());
@@ -117,15 +118,15 @@ class Agent:
 			for i in range(hp.Model["NUM_RUN"]):
 				_,loss_ = sess.run([train_step,loss],feed_dict={dropout_keep_prob:hp.Model["DROP_OUT_KEEP_PROB"], is_training:True});
 				losses.append(loss_);
-				if i%100==0:
+				if i%50==0:
 					print loss_;
 					print i;
 					if self.using_val:
-						val_accuracy_ = sess.run([val_accuracy],feed_dict={val_dropout_keep_prob:1, val_is_training:False});
+						val_accuracy_, num_correct_ = sess.run([val_accuracy, num_correct],feed_dict={val_dropout_keep_prob:1, val_is_training:False});
 						val_accuracies.append(val_accuracy_);
 
-		coord.request_stop();
-		coord.join(threads);
+			coord.request_stop();
+			coord.join(threads);
 		return losses, val_accuracies;
 
 #################################################################
@@ -138,6 +139,7 @@ if __name__ == "__main__":
 	losses, val_accuracies = agent.train();
 
 	plt.plot(losses);
+	plt.figure();
 	plt.plot(val_accuracies);
 	plt.show();
 	plt.show('hold');

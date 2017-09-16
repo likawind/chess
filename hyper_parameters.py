@@ -1,6 +1,6 @@
 Input={
 	"BATCH_SIZE":			1024,
-	"NUM_THREADS":			4,
+	"NUM_THREADS":			2,
 	"MIN_AFTER_DEQUEUE":	200,
 	"CAPACITY":				0
 }
@@ -12,7 +12,7 @@ Model={
 	"DROP_OUT_KEEP_PROB":	0.95,
 	"REG_RATE":				5e-2,
 	"LEARNING_RATE":		5e-6,
-	"NUM_RUN":				100,
+	"NUM_RUN":				5000,
 	"RELU_LEAK_ALPHA":		0.1,
 	"BATCH_NORM":			{
 		"DECAY":			0.999,
