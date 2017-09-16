@@ -49,6 +49,6 @@ def fc_dense(x,input_size,hiddens,dropout_keep_prob=1, is_training = True):
 			
 		cur_input_size.append(hidden_layer_size);
 
-	reg = W;
+	weights = W;
 
-	return cur_input[len(hiddens)], reg;
+	return cur_input[len(hiddens)], weights;
