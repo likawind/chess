@@ -18,7 +18,15 @@ def max_pool(x,size):
 def lrelu(x):
 	return tf.nn.relu(x)-hp.Model["RELU_LEAK_ALPHA"]*tf.nn.relu(-x);
 
-def fc_dense(x,input_size,hiddens,dropout_keep_prob=1):
+def batch_norm(x, is_training = True):
+	return tf.contrib.layers.batch_norm(x,
+		is_training = is_training, 
+		decay = hp.Model["BATCH_NORM"]["DECAY"], 
+		epsilon = hp.Model["BATCH_NORM"]["EPS"], 
+		renorm = hp.Model["BATCH_NORM"]["RENORM"],
+		renorm_decay = hp.Model["BATCH_NORM"]["RENORM_DECAY"]);
+
+def fc_dense(x,input_size,hiddens,dropout_keep_prob=1, is_training = True):
 
 	cur_input		= [];
 	cur_input_size	= [];
@@ -34,9 +42,10 @@ def fc_dense(x,input_size,hiddens,dropout_keep_prob=1):
 		b.append(bias([hidden_layer_size]));
 
 		if i < len(hiddens)-1:
-			cur_input.append(lrelu(tf.matmul(cur_input_dropped[i], W[i])+b[i]));
+			cur_input.append(lrelu(batch_norm(tf.matmul(cur_input_dropped[i], W[i])+b[i], is_training = is_training)));
 		else:
-			cur_input.append(tf.nn.sigmoid(tf.matmul(cur_input_dropped[i],W[i])+b[i]));
+			#expose the last layer
+			cur_input.append(tf.matmul(cur_input_dropped[i],W[i])+b[i]);
 			
 		cur_input_size.append(hidden_layer_size);
 
