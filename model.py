@@ -49,19 +49,27 @@ class Agent:
 
 		return;
 
-	def network(self, input_batch):
-	#construct the network with the input tensor
-		dropout_keep_prob = tf.placeholder(tf.float32);
-		is_training = tf.placeholder(tf.bool);
-
+	def network(self, input_batch, is_training, bn_namescope=None, bn_parameters=None):
+	#construct the network with the input tensor.
 		cur_conv_input = [input_batch];
 		conv_W = self.parameters["conv_W"];
 		conv_b = self.parameters["conv_b"];
 		fc_W = self.parameters["fc_W"];
 		fc_b = self.parameters["fc_b"];
 
+		dropout_keep_prob = 1;
+		if is_training:
+			dropout_keep_prob = hp.Model["DROP_OUT_KEEP_PROB"];
+
 		for i in range(len(conv_b)):
-			cur_conv_input.append(lrelu(batch_norm(conv2d(cur_conv_input[i],conv_W[i])+conv_b[i], is_training)));
+			cur_conv_input.append(lrelu(tf.contrib.layers.batch_norm(
+																conv2d(cur_conv_input[i],conv_W[i]) + conv_b[i], 
+																is_training = is_training,
+																param_initializers = None if is_training 
+																	else tf.constant_initializer(bn_parameters["conv"][i]),
+																decay = hp.Model["BATCH_NORM"]["DECAY"],
+																epsilon = hp.Model["BATCH_NORM"]["EPS"],
+																scope = bn_namescope+"_conv_"+str(i) if bn_namescope is not None else None)));
 
 		conv_out = tf.concat([tf.reshape(cur_conv_input[i],[-1,self.conv_layer_sizes[i]]) for i in range(1,len(cur_conv_input))],1);
 		cur_fc_input = [conv_out];
@@ -75,11 +83,14 @@ class Agent:
 				)+fc_b[i]
 				);
 			if i < len(fc_b)-1:
-				cur_fc_input.append(lrelu(batch_norm(fc_intermediate[i],is_training)));
+				cur_fc_input.append(lrelu(fc_intermediate[i]));
 			else:
 				cur_fc_input.append(fc_intermediate[i]);
 
-		return cur_fc_input[len(fc_b)], dropout_keep_prob, is_training;
+		return cur_fc_input[len(fc_b)];
+
+	def wnorm(self):
+		return tf.nn.l2_loss(self.parameters["conv_W"][0]);
 
 	def loss(self,pred_batch, label_batch):
 		l = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels = label_batch, logits = pred_batch));
@@ -92,23 +103,31 @@ class Agent:
 		return l;
 
 	def train(self):
-		pred_batch, dropout_keep_prob, is_training = self.network(self.train_data);
+		pred_batch = self.network(self.train_data, is_training = True, bn_namescope = hp.Model["BATCH_NORM"]["TRAIN_BN_NAME"]);
 		train_labels = (tf.cast(tf.reshape(self.train_label,[-1,1]), tf.float32)+1)/2;
 		loss = self.loss(pred_batch,train_labels);
-		train_step = tf.train.AdamOptimizer(hp.Model["LEARNING_RATE"]).minimize(loss);
+		update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS);
+		with tf.control_dependencies(update_ops):
+			train_step = tf.train.AdamOptimizer(hp.Model["LEARNING_RATE"]).minimize(loss);
 
+		_wnorm = self.wnorm();
 		val_accuracy = None;
 		val_pred = None;
 		val_dropout_keep_prob = None;
 		val_is_training = None;
 		val_labels = None;
 		num_correct = None;
+		val_loss = None;
 		val_accuracies = [];
 		if self.using_val:
-			val_pred, val_dropout_keep_prob, val_is_training = self.network(self.val_data);
+			val_bn_parameters = {"conv":[], "fc":[]};
+			for i in range(len(self.parameters["conv_b"])):
+				val_bn_parameters["conv"].append(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope = hp.Model["BATCH_NORM"]["TRAIN_BN_NAME"]+"_conv_"+str(i)))
+			val_pred = self.network(self.val_data, is_training = False, bn_parameters = val_bn_parameters);
 			val_labels = (tf.cast(tf.reshape(self.val_label,[-1,1]), tf.float32)+1)/2;
 			num_correct = tf.reduce_sum(tf.cast(tf.logical_and(val_pred>0.5,val_labels>0.6),tf.float32)+tf.cast(tf.logical_and(val_pred<0.5,val_labels<0.4),tf.float32));
 			val_accuracy = num_correct/(tf.reduce_sum(tf.cast(val_labels>0.6,tf.float32)+tf.cast(val_labels<0.4,tf.float32)));
+			val_loss = self.loss(val_pred, val_labels);
 
 		with tf.Session() as sess:
 			sess.run(tf.global_variables_initializer());
@@ -116,13 +135,14 @@ class Agent:
 			threads = tf.train.start_queue_runners(coord=coord);
 			losses = [];
 			for i in range(hp.Model["NUM_RUN"]):
-				_,loss_ = sess.run([train_step,loss],feed_dict={dropout_keep_prob:hp.Model["DROP_OUT_KEEP_PROB"], is_training:True});
+				_,loss_,_val_loss = sess.run([train_step,loss,val_loss]);
 				losses.append(loss_);
 				if i%50==0:
+					print _val_loss;
 					print loss_;
 					print i;
 					if self.using_val:
-						val_accuracy_, num_correct_ = sess.run([val_accuracy, num_correct],feed_dict={val_dropout_keep_prob:1, val_is_training:False});
+						val_accuracy_, num_correct_ = sess.run([val_accuracy, num_correct]);
 						val_accuracies.append(val_accuracy_);
 
 			coord.request_stop();
@@ -132,13 +152,13 @@ class Agent:
 #################################################################
 
 if __name__ == "__main__":
-	board_batch, label_batch = read_dataset(filenames=[TFRECORD_FOLDER+str(i)+".tfrecord" for i in range(42)]);
-	val_board_batch, val_label_batch = read_dataset(filenames=[TFRECORD_FOLDER+str(i)+".tfrecord" for i in range(42,44)]);
+	board_batch, label_batch = read_dataset(filenames=[TFRECORD_FOLDER+str(i)+".tfrecord" for i in range(40)]);
+	val_board_batch, val_label_batch = read_dataset(filenames=[TFRECORD_FOLDER+str(i)+".tfrecord" for i in range(40,44)]);
 	agent = Agent(train_data = board_batch, train_label = label_batch, 
 		using_val = True, val_data = val_board_batch, val_label = val_label_batch);
 	losses, val_accuracies = agent.train();
 
-	plt.plot(losses);
+	plt.plot(losses[100:]);
 	plt.figure();
 	plt.plot(val_accuracies);
 	plt.show();
