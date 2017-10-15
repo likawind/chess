@@ -6,7 +6,7 @@ from global_names import *;
 import hyper_parameters as hp;
 import Tkinter;
 import matplotlib.pyplot as plt;
-import tf.contrib.layers.batch_norm as bn_layer;
+from tensorflow.contrib.layers import batch_norm as bn_layer;
 
 class Agent:
 	def __init__(self, train_data, train_label, 
@@ -48,7 +48,7 @@ class Agent:
 
 	def network(self, input_batch, is_training, namescope = "DEFAULT_MODEL_NAMESCOPE"):
 	#construct the network with the input tensor.	
-		with tf.variable_scope(namescope, "model", reuse = None if training else True):
+		with tf.variable_scope(namescope, "model", reuse = None if is_training else True):
 			cur_conv_input = [input_batch];
 			conv_W = self.parameters["conv_W"];
 			conv_b = self.parameters["conv_b"];
@@ -129,7 +129,7 @@ class Agent:
 				tf.cast(tf.logical_and(val_pred > 0.5, val_labels > 0.6), tf.float32) + 
 				tf.cast(tf.logical_and(val_pred < 0.5, val_labels < 0.4), tf.float32)
 			);
-			val_accuracy = num_correct / 
+			val_accuracy = num_correct / \
 				(tf.reduce_sum(
 					tf.cast(val_labels > 0.6, tf.float32) + 
 					tf.cast(val_labels < 0.4, tf.float32)
@@ -137,15 +137,14 @@ class Agent:
 			val_loss = self.loss(val_pred, val_labels);
 
 		with tf.Session() as sess:
+			update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS);
+			with tf.control_dependencies(update_ops):
+				train_step = tf.train.AdamOptimizer(hp.Model["LEARNING_RATE"]).minimize(loss);
 			sess.run(tf.global_variables_initializer());
 			coord = tf.train.Coordinator();
 			threads = tf.train.start_queue_runners(coord = coord);
 			losses = [];
 			for i in range(hp.Model["NUM_RUN"]):
-				update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS);
-				with tf.control_dependencies(update_ops):
-					train_step = tf.train.AdamOptimizer(hp.Model["LEARNING_RATE"]).minimize(loss);
-					
 				_,loss_,_val_loss = sess.run([train_step, loss, val_loss]);
 				losses.append(loss_);
 				if i%50 == 0:

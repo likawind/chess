@@ -9,11 +9,11 @@ Input["CAPACITY"] = Input["MIN_AFTER_DEQUEUE"]+Input["BATCH_SIZE"]*5;
 
 Model={
 	"WEIGHT_INIT_STD":		0.5,
-	"DROP_OUT_KEEP_PROB":	0.95,
-	"REG_RATE":				0.5,
-	"LEARNING_RATE":		1e-2,
-	"NUM_RUN":				5,
-	"RELU_LEAK_ALPHA":		0.1,
+	"DROP_OUT_KEEP_PROB":	0.90,
+	"REG_RATE":				0.01,
+	"LEARNING_RATE":		1e-3,
+	"NUM_RUN":				50000,
+	"RELU_LEAK_ALPHA":		0.05,
 	"BATCH_NORM":			{
 		"TRAIN_BN_NAME":	"bn_train",
 		"DECAY":			0.999,
